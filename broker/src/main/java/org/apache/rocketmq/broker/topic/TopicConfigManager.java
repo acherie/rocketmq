@@ -67,6 +67,7 @@ public class TopicConfigManager extends ConfigManager {
         }
         {
             if (this.brokerController.getBrokerConfig().isAutoCreateTopicEnable()) {
+                // 如果开启自动Topic创建, 则新建一个默认的TBW102的Topic
                 String topic = TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC;
                 TopicConfig topicConfig = new TopicConfig(topic);
                 TopicValidator.addSystemTopic(topic);
@@ -219,6 +220,7 @@ public class TopicConfigManager extends ConfigManager {
         }
 
         if (createNew) {
+            // 将TopicConfig信息注册到NameSvc
             this.brokerController.registerBrokerAll(false, true, true);
         }
 
