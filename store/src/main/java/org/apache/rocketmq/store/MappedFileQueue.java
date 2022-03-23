@@ -200,6 +200,7 @@ public class MappedFileQueue {
         }
 
         if (mappedFileLast != null && mappedFileLast.isFull()) {
+            // 如果上一个文件已填满，则下一个文件的文件名时起始offset
             createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
         }
 

@@ -599,7 +599,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             msg.setTopic(this.defaultMQProducer.withNamespace(msg.getTopic()));
                         }
                         long costTime = beginTimestampPrev - beginTimestampFirst;
-                        if (timeout < costTime) {
+                        if (timeout < costTime) {// 判断如上操作时间是否超过超时时间
                             callTimeout = true;
                             break;
                         }

@@ -257,6 +257,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     break;
                 case SLAVE:
                     if (!this.brokerController.getBrokerConfig().isSlaveReadEnable()) {
+                        // 如果SLAVE不可读, 告知Consumer立即进行重试Pull
                         response.setCode(ResponseCode.PULL_RETRY_IMMEDIATELY);
                         responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
                     }
@@ -379,6 +380,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
 
                     this.brokerController.getBrokerStatsManager().incBrokerGetNums(getMessageResult.getMessageCount());
                     if (this.brokerController.getBrokerConfig().isTransferMsgByHeap()) {
+                        // 通过内存进行发送
                         final long beginTimeMills = this.brokerController.getMessageStore().now();
                         final byte[] r = this.readGetMessageResult(getMessageResult, requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
                         this.brokerController.getBrokerStatsManager().incGroupGetLatency(requestHeader.getConsumerGroup(),
@@ -386,6 +388,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                             (int) (this.brokerController.getMessageStore().now() - beginTimeMills));
                         response.setBody(r);
                     } else {
+                        // 通过文件进行发送
                         try {
                             FileRegion fileRegion =
                                 new ManyMessageTransfer(response.encodeHeader(getMessageResult.getBufferTotalSize()), getMessageResult);
@@ -408,12 +411,14 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                     break;
                 case ResponseCode.PULL_NOT_FOUND:
 
+                    // 消息未找到
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         long pollingTimeMills = suspendTimeoutMillisLong;
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }
 
+                        // 如果开启了长轮询, 则hang住当前的pull请求
                         String topic = requestHeader.getTopic();
                         long offset = requestHeader.getQueueOffset();
                         int queueId = requestHeader.getQueueId();
@@ -466,6 +471,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         storeOffsetEnable = storeOffsetEnable
             && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE;
         if (storeOffsetEnable) {
+            // 提交消费者消费的offset
             this.brokerController.getConsumerOffsetManager().commitOffset(RemotingHelper.parseChannelRemoteAddr(channel),
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId(), requestHeader.getCommitOffset());
         }

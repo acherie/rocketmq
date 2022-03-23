@@ -326,6 +326,13 @@ public abstract class RebalanceImpl {
         }
     }
 
+    /**
+     * 当重平衡的时候更新ProcessQueueTable
+     * @param topic
+     * @param mqSet 重平衡后该Consumer处理的MessageQueue
+     * @param isOrder
+     * @return
+     */
     private boolean updateProcessQueueTableInRebalance(final String topic, final Set<MessageQueue> mqSet,
         final boolean isOrder) {
         boolean changed = false;
@@ -338,6 +345,7 @@ public abstract class RebalanceImpl {
 
             if (mq.getTopic().equals(topic)) {
                 if (!mqSet.contains(mq)) {
+                    // 不处理原MessageQueue了, 将其进行移除
                     pq.setDropped(true);
                     if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                         it.remove();
@@ -403,6 +411,7 @@ public abstract class RebalanceImpl {
             }
         }
 
+        // 分发PullRequest
         this.dispatchPullRequest(pullRequestList);
 
         return changed;

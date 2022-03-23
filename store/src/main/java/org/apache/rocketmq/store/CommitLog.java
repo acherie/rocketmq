@@ -645,6 +645,7 @@ public class CommitLog {
                 case PUT_OK:
                     break;
                 case END_OF_FILE:
+                    // 文件空间不够写入，则新建文件写入
                     unlockMappedFile = mappedFile;
                     // Create a new file, re-write the message
                     mappedFile = this.mappedFileQueue.getLastMappedFile(0);
@@ -688,7 +689,9 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
+        // 提交磁盘flush请求, 会判断是否同步刷新和异步刷新, 同步刷新则会等待同步刷新的结果
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
+        // 提交主从复制请求, 会判断是否同步复制
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {

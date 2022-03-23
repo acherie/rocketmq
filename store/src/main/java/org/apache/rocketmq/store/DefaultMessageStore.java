@@ -539,6 +539,7 @@ public class DefaultMessageStore implements MessageStore {
 
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
+        // 找到对应的ConsumeQueue
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
             minOffset = consumeQueue.getMinOffsetInQueue();
@@ -635,6 +636,7 @@ public class DefaultMessageStore implements MessageStore {
                             }
 
                             this.storeStatsService.getGetMessageTransferedMsgCount().incrementAndGet();
+                            // 找到对应的消息, 将其放入结果中
                             getResult.addMessage(selectResult);
                             status = GetMessageStatus.FOUND;
                             nextPhyFileStartOffset = Long.MIN_VALUE;
@@ -647,6 +649,7 @@ public class DefaultMessageStore implements MessageStore {
 
                         nextBeginOffset = offset + (i / ConsumeQueue.CQ_STORE_UNIT_SIZE);
 
+                        // 判断是否建议从SLAVE拉取消息
                         long diff = maxOffsetPy - maxPhyOffsetPulling;
                         long memory = (long) (StoreUtil.TOTAL_PHYSICAL_MEMORY_SIZE
                             * (this.messageStoreConfig.getAccessMessageInMemoryMaxRatio() / 100.0));
@@ -1882,6 +1885,9 @@ public class DefaultMessageStore implements MessageStore {
             return this.reputFromOffset < DefaultMessageStore.this.commitLog.getMaxOffset();
         }
 
+        /**
+         * 根据commitLog文件中待生成ConsumerQueue的reputFromOffset生成对应的文件
+         */
         private void doReput() {
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {
                 log.warn("The reputFromOffset={} is smaller than minPyOffset={}, this usually indicate that the dispatch behind too much and the commitlog has expired.",
@@ -1895,20 +1901,24 @@ public class DefaultMessageStore implements MessageStore {
                     break;
                 }
 
+                // 根据reput offset找到对应的mapped file的结果
                 SelectMappedBufferResult result = DefaultMessageStore.this.commitLog.getData(reputFromOffset);
                 if (result != null) {
                     try {
                         this.reputFromOffset = result.getStartOffset();
 
                         for (int readSize = 0; readSize < result.getSize() && doNext; ) {
+                            // 生成对应的重放分发请求
                             DispatchRequest dispatchRequest =
                                 DefaultMessageStore.this.commitLog.checkMessageAndReturnSize(result.getByteBuffer(), false, false);
                             int size = dispatchRequest.getBufferSize() == -1 ? dispatchRequest.getMsgSize() : dispatchRequest.getBufferSize();
 
                             if (dispatchRequest.isSuccess()) {
                                 if (size > 0) {
+                                    // 分发重放请求, 生成consumerQueue和索引文件
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    // 如果开启长轮询, 通知消息到达
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {
